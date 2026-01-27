@@ -1,4 +1,7 @@
+import dotenv from 'dotenv';
 import { run } from 'graphile-worker';
+
+dotenv.config();
 
 run({
   connectionString: process.env.DATABASE_URL,

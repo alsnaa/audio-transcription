@@ -1,8 +1,11 @@
+import path from 'path';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import multer from 'multer';
 import dotenv from 'dotenv';
+import { quickAddJob } from 'graphile-worker';
 import prisma from './services/db.js';
 
 dotenv.config();
@@ -11,7 +14,15 @@ const app = express();
 app.use(cors());
 app.use(morgan('dev'));
 
-const upload = multer({ dest: 'uploads/' });
+const storage = multer.diskStorage({
+  destination: 'uploads/',
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueName = `${crypto.randomUUID()}${ext}`;
+    cb(null, uniqueName);
+  },
+});
+const upload = multer({ storage });
 
 const PORT = process.env.PORT || 3000;
 
@@ -31,6 +42,12 @@ app.post('/transcribe', upload.single('audio'), async (req, res, next) => {
         filePath: req.file.path,
       },
     });
+
+    await quickAddJob(
+      { connectionString: process.env.DATABASE_URL },
+      'preprocess',
+      { jobId: job.id }
+    );
 
     res.status(201).json({ jobId: job.id });
   } catch (error) {
