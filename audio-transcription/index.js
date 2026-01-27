@@ -59,6 +59,11 @@ app.get('/jobs/:id', async (req, res, next) => {
   try {
     const job = await prisma.job.findUnique({
       where: { id: req.params.id },
+      include: {
+        transcriptions: {
+          orderBy: { chunkIndex: 'asc' },
+        },
+      },
     });
 
     if (!job) {

@@ -33,6 +33,13 @@ export default async (payload, helpers) => {
         data: { chunkPaths: [job.processedFilePath] },
       });
 
+      await helpers.addJob('transcribe', {
+        jobId,
+        chunkIndex: 0,
+        chunkPath: job.processedFilePath,
+        totalChunks: 1,
+      });
+
       helpers.logger.info(
         `Audio shorter than ${chunkDuration}s, no splitting needed for job ${jobId}`
       );
@@ -60,7 +67,15 @@ export default async (payload, helpers) => {
       });
 
       chunkPaths.push(chunkPath);
-      helpers.logger.info(`Created chunk ${i + 1}/${numChunks} for job ${jobId}`);
+
+      await helpers.addJob('transcribe', {
+        jobId,
+        chunkIndex: i,
+        chunkPath,
+        totalChunks: numChunks,
+      });
+
+      helpers.logger.info(`Created chunk ${i + 1}/${numChunks} for job ${jobId}, transcribe task queued`);
     }
 
     await prisma.job.update({
