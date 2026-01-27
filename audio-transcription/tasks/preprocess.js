@@ -36,6 +36,8 @@ export default async (payload, helpers) => {
       data: { processedFilePath: outputPath },
     });
 
+    await helpers.addJob('chunk', { jobId });
+
     helpers.logger.info(`Pre-processing complete for job ${jobId}: ${outputPath}`);
   } catch (error) {
     helpers.logger.error(`Pre-processing failed for job ${jobId}: ${error.message}`);
