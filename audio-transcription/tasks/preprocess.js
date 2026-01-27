@@ -1,0 +1,50 @@
+import path from 'path';
+import ffmpeg from 'fluent-ffmpeg';
+import prisma from '../services/db.js';
+
+export default async (payload, helpers) => {
+  const { jobId } = payload;
+
+  helpers.logger.info(`Starting pre-processing for job ${jobId}`);
+
+  const job = await prisma.job.findUnique({ where: { id: jobId } });
+
+  if (!job) {
+    throw new Error(`Job ${jobId} not found`);
+  }
+
+  await prisma.job.update({
+    where: { id: jobId },
+    data: { status: 'PROCESSING' },
+  });
+
+  const outputPath = path.join('uploads', `${jobId}.wav`);
+
+  try {
+    await new Promise((resolve, reject) => {
+      ffmpeg(job.filePath)
+        .audioFrequency(16000)
+        .audioChannels(1)
+        .format('wav')
+        .on('end', resolve)
+        .on('error', reject)
+        .save(outputPath);
+    });
+
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { processedFilePath: outputPath },
+    });
+
+    helpers.logger.info(`Pre-processing complete for job ${jobId}: ${outputPath}`);
+  } catch (error) {
+    helpers.logger.error(`Pre-processing failed for job ${jobId}: ${error.message}`);
+
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: 'FAILED' },
+    });
+
+    throw error;
+  }
+};

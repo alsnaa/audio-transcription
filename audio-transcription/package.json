@@ -1,0 +1,34 @@
+{
+  "name": "audio-transcription",
+  "version": "1.0.0",
+  "description": "audio transcription by alesna",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "author": "alesna",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.3.0",
+    "@prisma/client": "^7.3.0",
+    "axios": "^1.13.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "graphile-worker": "^0.16.6",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "openai": "^6.16.0",
+    "pg": "^8.17.2",
+    "undici": "^7.19.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.11",
+    "prettier": "^3.8.1",
+    "prisma": "^7.3.0"
+  }
+}
