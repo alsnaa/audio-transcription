@@ -13,7 +13,7 @@ model File {
   filePath          String
   mimeType          String?
   processedFilePath String?
-  chunkPaths        String[]
+  chunkPaths        String[]  @default([])
   language          String?
   duration          Float?
   createdAt         DateTime  @default(now())
