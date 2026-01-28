@@ -36,7 +36,7 @@ export default async (payload, helpers) => {
       data: { processedFilePath: outputPath },
     });
 
-    await helpers.addJob('chunk', { jobId, fileId });
+    await helpers.addJob('transcription', { jobId, fileId });
 
     helpers.logger.info(
       `Pre-processing complete for job ${jobId}: ${outputPath}`
