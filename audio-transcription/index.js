@@ -74,7 +74,12 @@ app.get('/jobs/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Job not found' });
     }
 
-    res.json(job);
+    const transcriptionDuration =
+      job.status === 'COMPLETED' && job.startedAt
+        ? (job.updatedAt - job.startedAt) / 1000
+        : null;
+
+    res.json({ ...job, transcriptionDuration });
   } catch (error) {
     next(error);
   }
@@ -94,9 +99,16 @@ app.get('/segments/:fileId', async (req, res, next) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
+    const job = file.job;
+    const transcriptionDuration =
+      job?.status === 'COMPLETED' && job.startedAt
+        ? (job.updatedAt - job.startedAt) / 1000
+        : null;
+
     res.json({
       fileId: file.id,
-      status: file.job?.status ?? 'PENDING',
+      status: job?.status ?? 'PENDING',
+      transcriptionDuration,
       segments: file.segments,
     });
   } catch (error) {
@@ -112,16 +124,25 @@ app.get('/files', async (req, res, next) => {
     });
 
     res.json(
-      files.map((file) => ({
-        id: file.id,
-        fileName: file.fileName,
-        filePath: file.filePath,
-        mimeType: file.mimeType,
-        duration: file.duration,
-        language: file.language,
-        status: file.job?.status ?? 'PENDING',
-        createdAt: file.createdAt,
-      }))
+      files.map((file) => {
+        const job = file.job;
+        const transcriptionDuration =
+          job?.status === 'COMPLETED' && job.startedAt
+            ? (job.updatedAt - job.startedAt) / 1000
+            : null;
+
+        return {
+          id: file.id,
+          fileName: file.fileName,
+          filePath: file.filePath,
+          mimeType: file.mimeType,
+          duration: file.duration,
+          language: file.language,
+          status: job?.status ?? 'PENDING',
+          transcriptionDuration,
+          createdAt: file.createdAt,
+        };
+      })
     );
   } catch (error) {
     next(error);

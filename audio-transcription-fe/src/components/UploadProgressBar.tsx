@@ -7,11 +7,8 @@ interface UploadProgressBarProps {
 }
 
 export function UploadProgressBar({ files }: UploadProgressBarProps) {
-  // Filter files that are actively uploading or processing
-  const activeFiles = files.filter(
-    (f) =>
-      f.status === "uploading" || f.status === "processing"
-  );
+  // Filter files that are actively uploading
+  const activeFiles = files.filter((f) => f.status === "uploading");
 
   if (activeFiles.length === 0) return null;
 

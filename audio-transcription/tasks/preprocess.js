@@ -15,7 +15,7 @@ export default async (payload, helpers) => {
 
   await prisma.job.update({
     where: { id: jobId },
-    data: { status: 'PROCESSING' },
+    data: { status: 'PROCESSING', startedAt: new Date() },
   });
 
   const outputPath = path.join('uploads', `${fileId}.wav`);
