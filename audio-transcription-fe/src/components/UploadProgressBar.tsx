@@ -37,9 +37,11 @@ export function UploadProgressBar({ files }: UploadProgressBarProps) {
             className="flex items-center gap-2 text-xs text-muted-foreground"
           >
             <span className="flex-1 truncate">{file.name}</span>
-            <span className="whitespace-nowrap">
-              {formatBytes(file.size)}
-            </span>
+            {file.size > 0 && (
+              <span className="whitespace-nowrap">
+                {formatBytes(file.size)}
+              </span>
+            )}
             <span className="whitespace-nowrap">{file.uploadProgress}%</span>
           </div>
         ))}

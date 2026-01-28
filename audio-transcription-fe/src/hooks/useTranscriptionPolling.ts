@@ -1,7 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import type { MediaFile, TranscriptionSegment } from "@/types/transcription";
+import { useEffect, useRef, useState, useMemo } from "react";
+import type { MediaFile } from "@/types/transcription";
 import { ProcessingStatus } from "@/types/transcription";
-import { simulateProcessing } from "@/lib/mock-data";
+import { fetchSegments } from "@/services/segmentsService";
+import {
+  mapApiSegmentToTranscriptionSegment,
+  buildTranscription,
+} from "@/services/mappers";
 
 interface UseTranscriptionPollingOptions {
   pollingInterval?: number; // in milliseconds
@@ -18,20 +22,22 @@ export function useTranscriptionPolling(
   setMediaFiles: React.Dispatch<React.SetStateAction<MediaFile[]>>,
   options: UseTranscriptionPollingOptions = {}
 ): UseTranscriptionPollingReturn {
-  const { pollingInterval = 3000, enabled = true } = options;
+  const { pollingInterval = 5000, enabled = true } = options;
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const activePollingRef = useRef<Map<string, () => void>>(new Map());
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Derive a stable dependency: sorted string of processing file IDs
+  const processingFileIds = useMemo(() => {
+    return mediaFiles
+      .filter((f) => f.status === ProcessingStatus.PROCESSING)
+      .map((f) => f.id)
+      .sort()
+      .join(",");
+  }, [mediaFiles]);
 
   useEffect(() => {
-    if (!enabled) return;
-
-    // Find files that need polling
-    const processingFiles = mediaFiles.filter(
-      (f) => f.status === ProcessingStatus.PROCESSING
-    );
-
-    if (processingFiles.length === 0) {
+    if (!enabled || !processingFileIds) {
       setIsPolling(false);
       return;
     }
@@ -39,79 +45,69 @@ export function useTranscriptionPolling(
     setIsPolling(true);
     setError(null);
 
-    // Set up polling for each processing file
-    processingFiles.forEach((file) => {
-      // Skip if already polling this file
-      if (activePollingRef.current.has(file.id)) return;
+    const ids = processingFileIds.split(",");
 
-      // Simulate processing with progress updates
-      const cleanup = simulateProcessing(
-        file.id,
-        (status: ProcessingStatus, progress?: number) => {
-          setMediaFiles((prev) =>
-            prev.map((f) =>
-              f.id === file.id
-                ? {
-                    ...f,
-                    status,
-                    uploadProgress: progress ?? f.uploadProgress,
-                  }
-                : f
-            )
+    const poll = async () => {
+      for (const fileId of ids) {
+        try {
+          const data = await fetchSegments(fileId);
+          const segments = data.segments.map(
+            mapApiSegmentToTranscriptionSegment
           );
 
-          // When completed, add transcription
-          if (status === ProcessingStatus.COMPLETED) {
-            // Mock transcription data - in real app, fetch from API
-            const mockSegments: TranscriptionSegment[] = [
-              {
-                id: `seg-${file.id}-1`,
-                startTime: 0,
-                endTime: 5,
-                text: `This is a simulated transcription for ${file.name}. `,
-                speaker: "Speaker 1",
-                confidence: 0.95,
-              },
-              {
-                id: `seg-${file.id}-2`,
-                startTime: 5,
-                endTime: 10,
-                text: "In a real application, this data would come from the backend API.",
-                speaker: "Speaker 2",
-                confidence: 0.97,
-              },
-            ];
-
+          if (data.status === "COMPLETED") {
             setMediaFiles((prev) =>
               prev.map((f) =>
-                f.id === file.id
+                f.id === fileId
                   ? {
                       ...f,
                       status: ProcessingStatus.COMPLETED,
-                      transcription: {
-                        mediaFileId: file.id,
-                        segments: mockSegments,
-                        fullText: mockSegments.map((s) => s.text).join(" "),
-                        language: "en",
-                        createdAt: new Date(),
-                      },
+                      transcription: buildTranscription(fileId, segments),
+                    }
+                  : f
+              )
+            );
+          } else if (data.status === "FAILED") {
+            setMediaFiles((prev) =>
+              prev.map((f) =>
+                f.id === fileId
+                  ? { ...f, status: ProcessingStatus.ERROR }
+                  : f
+              )
+            );
+          } else if (segments.length > 0) {
+            // Partial transcription for live preview
+            setMediaFiles((prev) =>
+              prev.map((f) =>
+                f.id === fileId
+                  ? {
+                      ...f,
+                      transcription: buildTranscription(fileId, segments),
                     }
                   : f
               )
             );
           }
+        } catch (err) {
+          console.error(`Polling error for file ${fileId}:`, err);
+          setError(
+            err instanceof Error ? err.message : "Polling error"
+          );
         }
-      );
-
-      activePollingRef.current.set(file.id, cleanup);
-    });
-
-    // Cleanup function
-    return () => {
-      activePollingRef.current.forEach((cleanup) => cleanup());
-      activePollingRef.current.clear();
+      }
     };
-  }, [mediaFiles, setMediaFiles, enabled, pollingInterval]);
+
+    // Poll immediately, then on interval
+    poll();
+    intervalRef.current = setInterval(poll, pollingInterval);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [processingFileIds, setMediaFiles, enabled, pollingInterval]);
 
   return { isPolling, error };
 }

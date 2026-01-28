@@ -7,19 +7,42 @@ import { formatTime } from "@/lib/mock-data";
 
 interface MediaPlayerProps {
   mediaFile: MediaFile | null;
+  mediaUrl?: string;
+  seekRef?: React.MutableRefObject<((time: number) => void) | null>;
   onTimeUpdate?: (currentTime: number) => void;
 }
 
-export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+export function MediaPlayer({ mediaFile, mediaUrl, seekRef, onTimeUpdate }: MediaPlayerProps) {
+  const mediaRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
 
+  // Reset player state when switching files
   useEffect(() => {
-    const mediaElement = videoRef.current;
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setDuration(0);
+  }, [mediaFile?.id]);
+
+  // Expose seek function to parent via ref
+  useEffect(() => {
+    if (seekRef) {
+      seekRef.current = (time: number) => {
+        handleSeek([time]);
+      };
+    }
+    return () => {
+      if (seekRef) {
+        seekRef.current = null;
+      }
+    };
+  });
+
+  useEffect(() => {
+    const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
     const handleTimeUpdate = () => {
@@ -48,7 +71,7 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
   }, [onTimeUpdate]);
 
   const togglePlay = () => {
-    const mediaElement = videoRef.current;
+    const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
     if (isPlaying) {
@@ -60,7 +83,7 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
   };
 
   const handleSeek = (value: number[]) => {
-    const mediaElement = videoRef.current;
+    const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
     const newTime = value[0];
@@ -69,7 +92,7 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
   };
 
   const toggleMute = () => {
-    const mediaElement = videoRef.current;
+    const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
     const newMuted = !isMuted;
@@ -78,7 +101,7 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
   };
 
   const handleVolumeChange = (value: number[]) => {
-    const mediaElement = videoRef.current;
+    const mediaElement = mediaRef.current;
     if (!mediaElement) return;
 
     const newVolume = value[0] / 100;
@@ -99,17 +122,13 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
     );
   }
 
-  // Use a placeholder video/audio element with the media file type
-  // In a real app, you'd have actual URLs to the media files
-  const mediaUrl = ""; // This would be the actual URL to the media file
-
   return (
     <div className="border-b border-border bg-background">
       {/* Media Element */}
       <div className="relative aspect-video w-full bg-black">
         {mediaFile.type === "video" ? (
           <video
-            ref={videoRef}
+            ref={mediaRef}
             src={mediaUrl}
             className="h-full w-full"
             onPlay={() => setIsPlaying(true)}
@@ -117,7 +136,7 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
           />
         ) : (
           <audio
-            ref={videoRef}
+            ref={mediaRef}
             src={mediaUrl}
             className="hidden"
             onPlay={() => setIsPlaying(true)}
@@ -138,11 +157,11 @@ export function MediaPlayer({ mediaFile, onTimeUpdate }: MediaPlayerProps) {
           </div>
         )}
 
-        {/* Placeholder for demo - remove when real media is available */}
+        {/* Placeholder when no media URL is available */}
         {!mediaUrl && (
           <div className="absolute inset-0 flex items-center justify-center bg-muted">
             <p className="text-muted-foreground">
-              Media player ready (mock mode - no actual media)
+              No media available for playback
             </p>
           </div>
         )}

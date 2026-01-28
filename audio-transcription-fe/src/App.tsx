@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { HeaderToolbar } from "./components/HeaderToolbar";
 import { UploadProgressBar } from "./components/UploadProgressBar";
 import { MediaPlayer } from "./components/MediaPlayer";
@@ -7,71 +7,138 @@ import { TranscriptionView } from "./components/TranscriptionView";
 import { useTranscriptionPolling } from "./hooks/useTranscriptionPolling";
 import type { MediaFile, TranscriptionSegment } from "./types/transcription";
 import { ProcessingStatus } from "./types/transcription";
-import { mockMediaFiles, simulateFileUpload } from "./lib/mock-data";
+import { fetchFiles } from "./services/filesService";
+import { fetchSegments } from "./services/segmentsService";
+import { transcribeFile } from "./services/transcribeService";
+import {
+  mapApiFileToMediaFile,
+  mapApiSegmentToTranscriptionSegment,
+  buildTranscription,
+} from "./services/mappers";
 
 function App() {
-  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>(mockMediaFiles);
-  const [selectedFileId, setSelectedFileId] = useState<string | null>(
-    mockMediaFiles[0]?.id || null
-  );
+  const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
+  const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+
+  // Seek ref for the media player
+  const seekToRef = useRef<((time: number) => void) | null>(null);
+
+  // Load files from API on mount
+  useEffect(() => {
+    fetchFiles()
+      .then((apiFiles) => {
+        const mapped = apiFiles.map(mapApiFileToMediaFile);
+        setMediaFiles(mapped);
+        if (mapped.length > 0) {
+          setSelectedFileId(mapped[0].id);
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to fetch files:", err);
+      });
+  }, []);
 
   // Polling hook for processing files
   const { isPolling } = useTranscriptionPolling(mediaFiles, setMediaFiles, {
     enabled: true,
-    pollingInterval: 2000,
+    pollingInterval: 5000,
   });
 
   // Get the currently selected file
   const selectedFile = mediaFiles.find((f) => f.id === selectedFileId) || null;
 
+  // Load segments for completed files when selected
+  useEffect(() => {
+    if (
+      !selectedFile ||
+      selectedFile.status !== ProcessingStatus.COMPLETED ||
+      selectedFile.transcription
+    ) {
+      return;
+    }
+
+    fetchSegments(selectedFile.id)
+      .then((data) => {
+        const segments = data.segments.map(mapApiSegmentToTranscriptionSegment);
+        const transcription = buildTranscription(selectedFile.id, segments);
+        setMediaFiles((prev) =>
+          prev.map((f) =>
+            f.id === selectedFile.id ? { ...f, transcription } : f
+          )
+        );
+      })
+      .catch((err) => {
+        console.error("Failed to fetch segments:", err);
+      });
+  }, [selectedFile?.id, selectedFile?.status, selectedFile?.transcription]);
+
   // Handle file upload
   const handleFileSelect = useCallback(async (files: FileList) => {
     const fileArray = Array.from(files);
 
-    // Create new media file entries
-    const newFiles: MediaFile[] = fileArray.map((file) => ({
-      id: `file-${Date.now()}-${Math.random()}`,
-      name: file.name,
-      type: file.type.startsWith("video") ? "video" : "audio",
-      mimeType: file.type,
-      size: file.size,
-      duration: 0, // Will be updated when loaded
-      status: ProcessingStatus.UPLOADING,
-      uploadProgress: 0,
-      createdAt: new Date(),
-    }));
+    for (const file of fileArray) {
+      const tempId = `temp-${Date.now()}-${Math.random()}`;
 
-    setMediaFiles((prev) => [...newFiles, ...prev]);
+      // Optimistic UI: add file immediately
+      const newFile: MediaFile = {
+        id: tempId,
+        name: file.name,
+        type: file.type.startsWith("video") ? "video" : "audio",
+        mimeType: file.type,
+        size: file.size,
+        duration: 0,
+        status: ProcessingStatus.UPLOADING,
+        uploadProgress: 0,
+        createdAt: new Date(),
+      };
 
-    // Simulate upload for each file
-    for (let i = 0; i < newFiles.length; i++) {
-      const newFile = newFiles[i];
-      await simulateFileUpload(
-        fileArray[i],
-        (progress) => {
-          setMediaFiles((prev) =>
-            prev.map((f) =>
-              f.id === newFile.id
-                ? { ...f, uploadProgress: progress }
-                : f
-            )
-          );
-        }
-      );
+      setMediaFiles((prev) => [newFile, ...prev]);
+      setSelectedFileId(tempId);
 
-      // Mark as processing after upload completes
-      setMediaFiles((prev) =>
-        prev.map((f) =>
-          f.id === newFile.id
-            ? {
-                ...f,
-                status: ProcessingStatus.PROCESSING,
-                uploadProgress: 100,
-              }
-            : f
-        )
-      );
+      try {
+        const response = await transcribeFile(file, {
+          onUploadProgress: (event) => {
+            const progress = event.total
+              ? Math.round((event.loaded / event.total) * 100)
+              : 0;
+            setMediaFiles((prev) =>
+              prev.map((f) =>
+                f.id === tempId ? { ...f, uploadProgress: progress } : f
+              )
+            );
+          },
+        });
+
+        // Swap temp ID with real fileId and set the file URL
+        const realId = response.fileId;
+        const baseUrl = import.meta.env.VITE_API_BASE_URL || "";
+        const fileUrl = `${baseUrl}/${response.filePath}`;
+
+        setMediaFiles((prev) =>
+          prev.map((f) =>
+            f.id === tempId
+              ? {
+                  ...f,
+                  id: realId,
+                  status: ProcessingStatus.PROCESSING,
+                  uploadProgress: 100,
+                  fileUrl,
+                }
+              : f
+          )
+        );
+
+        // Fix race condition: update selectedFileId if it was the temp ID
+        setSelectedFileId((prev) => (prev === tempId ? realId : prev));
+      } catch (err) {
+        console.error("Upload failed:", err);
+        setMediaFiles((prev) =>
+          prev.map((f) =>
+            f.id === tempId ? { ...f, status: ProcessingStatus.ERROR } : f
+          )
+        );
+      }
     }
   }, []);
 
@@ -84,19 +151,21 @@ function App() {
   // Handle segment click (seek to timestamp)
   const handleSegmentClick = useCallback((segment: TranscriptionSegment) => {
     setActiveSegmentId(segment.id);
-    // In a real app, you'd seek the media player here
-    // For now, we just update the active segment for highlighting
+    seekToRef.current?.(segment.startTime);
   }, []);
 
   // Handle media time update (for highlighting active segment)
-  const handleTimeUpdate = useCallback((time: number) => {
-    if (selectedFile?.transcription) {
-      const activeSegment = selectedFile.transcription.segments.find(
-        (seg) => time >= seg.startTime && time < seg.endTime
-      );
-      setActiveSegmentId(activeSegment?.id || null);
-    }
-  }, [selectedFile]);
+  const handleTimeUpdate = useCallback(
+    (time: number) => {
+      if (selectedFile?.transcription) {
+        const activeSegment = selectedFile.transcription.segments.find(
+          (seg) => time >= seg.startTime && time < seg.endTime
+        );
+        setActiveSegmentId(activeSegment?.id || null);
+      }
+    },
+    [selectedFile]
+  );
 
   // Count uploading/processing files
   const activeUploadCount = mediaFiles.filter(
@@ -104,6 +173,9 @@ function App() {
       f.status === ProcessingStatus.UPLOADING ||
       f.status === ProcessingStatus.PROCESSING
   ).length;
+
+  // Get media URL from the file's API-provided URL
+  const selectedMediaUrl = selectedFile?.fileUrl;
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-background">
@@ -123,6 +195,8 @@ function App() {
           {/* Media Player */}
           <MediaPlayer
             mediaFile={selectedFile}
+            mediaUrl={selectedMediaUrl}
+            seekRef={seekToRef}
             onTimeUpdate={handleTimeUpdate}
           />
 
@@ -135,7 +209,7 @@ function App() {
         </div>
 
         {/* Right Column - Transcription View */}
-        <div className="w-3/5">
+        <div className="w-3/5 overflow-hidden">
           <TranscriptionView
             mediaFile={selectedFile}
             activeSegmentId={activeSegmentId}

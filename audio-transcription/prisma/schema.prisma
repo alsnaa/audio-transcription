@@ -11,6 +11,7 @@ model File {
   id                String    @id @default(uuid())
   fileName          String
   filePath          String
+  mimeType          String?
   processedFilePath String?
   chunkPaths        String[]
   language          String?

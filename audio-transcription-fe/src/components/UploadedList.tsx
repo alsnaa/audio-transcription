@@ -103,8 +103,12 @@ export function UploadedList({
                             <Clock className="h-3 w-3" />
                             {formatTime(file.duration)}
                           </span>
-                          <span>•</span>
-                          <span>{formatBytes(file.size)}</span>
+                          {file.size > 0 && (
+                            <>
+                              <span>•</span>
+                              <span>{formatBytes(file.size)}</span>
+                            </>
+                          )}
                         </div>
                       </div>
                       {getStatusBadge(file.status)}

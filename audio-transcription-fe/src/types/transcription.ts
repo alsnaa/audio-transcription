@@ -19,6 +19,7 @@ export interface MediaFile {
   duration: number; // in seconds
   status: ProcessingStatus;
   uploadProgress: number; // 0-100
+  fileUrl?: string;
   transcription?: Transcription;
   createdAt: Date;
 }

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Clock } from "lucide-react";
@@ -43,9 +44,16 @@ export function TranscriptionView({
   }
 
   const { segments, language } = mediaFile.transcription;
+  const activeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (activeSegmentId && activeRef.current) {
+      activeRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [activeSegmentId]);
 
   return (
-    <div className="flex h-full w-full flex-col bg-background">
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background">
       {/* Header */}
       <div className="border-b border-border px-6 py-4">
         <h2 className="text-lg font-semibold">{mediaFile.name}</h2>
@@ -57,7 +65,7 @@ export function TranscriptionView({
       </div>
 
       {/* Transcription Content */}
-      <ScrollArea className="flex-1">
+      <ScrollArea className="min-h-0 flex-1">
         <div className="space-y-4 p-6">
           {segments.map((segment: TranscriptionSegment, index: number) => {
             const isActive = segment.id === activeSegmentId;
@@ -65,6 +73,7 @@ export function TranscriptionView({
             return (
               <div
                 key={segment.id}
+                ref={isActive ? activeRef : undefined}
                 className={`group rounded-lg border border-border p-4 transition-colors hover:bg-accent cursor-pointer ${
                   isActive ? "bg-accent border-primary" : ""
                 }`}

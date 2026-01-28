@@ -13,6 +13,7 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(morgan('dev'));
+app.use('/uploads', express.static('uploads'));
 
 const storage = multer.diskStorage({
   destination: 'uploads/',
@@ -42,6 +43,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res, next) => {
       data: {
         fileName: req.file.originalname,
         filePath: req.file.path,
+        mimeType: req.file.mimetype,
       },
     });
 
@@ -55,7 +57,7 @@ app.post('/transcribe', upload.single('audio'), async (req, res, next) => {
       { jobId: job.id, fileId: file.id }
     );
 
-    res.status(201).json({ jobId: job.id, fileId: file.id });
+    res.status(201).json({ jobId: job.id, fileId: file.id, filePath: file.filePath });
   } catch (error) {
     next(error);
   }
@@ -113,6 +115,8 @@ app.get('/files', async (req, res, next) => {
       files.map((file) => ({
         id: file.id,
         fileName: file.fileName,
+        filePath: file.filePath,
+        mimeType: file.mimeType,
         duration: file.duration,
         language: file.language,
         status: file.job?.status ?? 'PENDING',
