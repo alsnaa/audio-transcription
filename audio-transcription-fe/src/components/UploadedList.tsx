@@ -89,7 +89,7 @@ export function UploadedList({
               return (
                 <Card
                   key={file.id}
-                  className={`cursor-pointer transition-colors hover:bg-accent ${
+                  className={`cursor-pointer transition-colors hover:bg-accent w-full max-w-full ${
                     isSelected ? "bg-accent border-primary" : ""
                   }`}
                   onClick={() => onFileSelect(file)}
@@ -102,7 +102,7 @@ export function UploadedList({
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">
-                          <p className="truncate text-sm font-medium">
+                          <p className="text-sm font-medium line-clamp-1 ">
                             {file.name}
                           </p>
                           <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -137,7 +137,7 @@ export function UploadedList({
                       {/* Transcription preview */}
                       {file.status === ProcessingStatus.COMPLETED &&
                         file.transcription && (
-                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                          <p className="line-clamp-2 text-xs text-muted-foreground max-w-full">
                             {file.transcription.fullText}
                           </p>
                         )}

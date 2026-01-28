@@ -12,7 +12,12 @@ interface MediaPlayerProps {
   onTimeUpdate?: (currentTime: number) => void;
 }
 
-export function MediaPlayer({ mediaFile, mediaUrl, seekRef, onTimeUpdate }: MediaPlayerProps) {
+export function MediaPlayer({
+  mediaFile,
+  mediaUrl,
+  seekRef,
+  onTimeUpdate,
+}: MediaPlayerProps) {
   const mediaRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -228,7 +233,7 @@ export function MediaPlayer({ mediaFile, mediaUrl, seekRef, onTimeUpdate }: Medi
             </div>
           </div>
 
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground pl-4 line-clamp-2">
             {mediaFile.name}
           </div>
         </div>
