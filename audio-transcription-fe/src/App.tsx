@@ -64,8 +64,8 @@ function App() {
         const transcription = buildTranscription(selectedFile.id, segments);
         setMediaFiles((prev) =>
           prev.map((f) =>
-            f.id === selectedFile.id ? { ...f, transcription } : f
-          )
+            f.id === selectedFile.id ? { ...f, transcription } : f,
+          ),
         );
       })
       .catch((err) => {
@@ -104,8 +104,8 @@ function App() {
               : 0;
             setMediaFiles((prev) =>
               prev.map((f) =>
-                f.id === tempId ? { ...f, uploadProgress: progress } : f
-              )
+                f.id === tempId ? { ...f, uploadProgress: progress } : f,
+              ),
             );
           },
         });
@@ -125,8 +125,8 @@ function App() {
                   uploadProgress: 100,
                   fileUrl,
                 }
-              : f
-          )
+              : f,
+          ),
         );
 
         // Fix race condition: update selectedFileId if it was the temp ID
@@ -135,8 +135,8 @@ function App() {
         console.error("Upload failed:", err);
         setMediaFiles((prev) =>
           prev.map((f) =>
-            f.id === tempId ? { ...f, status: ProcessingStatus.ERROR } : f
-          )
+            f.id === tempId ? { ...f, status: ProcessingStatus.ERROR } : f,
+          ),
         );
       }
     }
@@ -159,19 +159,19 @@ function App() {
     (time: number) => {
       if (selectedFile?.transcription) {
         const activeSegment = selectedFile.transcription.segments.find(
-          (seg) => time >= seg.startTime && time < seg.endTime
+          (seg) => time >= seg.startTime && time < seg.endTime,
         );
         setActiveSegmentId(activeSegment?.id || null);
       }
     },
-    [selectedFile]
+    [selectedFile],
   );
 
   // Count uploading/processing files
   const activeUploadCount = mediaFiles.filter(
     (f) =>
       f.status === ProcessingStatus.UPLOADING ||
-      f.status === ProcessingStatus.PROCESSING
+      f.status === ProcessingStatus.PROCESSING,
   ).length;
 
   // Get media URL from the file's API-provided URL
@@ -191,7 +191,7 @@ function App() {
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Column - Media Player & File List */}
-        <div className="flex w-2/5 flex-col border-r border-border">
+        <div className="flex flex-1 flex-col border-r border-border">
           {/* Media Player */}
           <MediaPlayer
             mediaFile={selectedFile}
@@ -209,7 +209,7 @@ function App() {
         </div>
 
         {/* Right Column - Transcription View */}
-        <div className="w-3/5 overflow-hidden">
+        <div className="flex-1 overflow-hidden">
           <TranscriptionView
             mediaFile={selectedFile}
             activeSegmentId={activeSegmentId}
