@@ -36,7 +36,7 @@ export default async (payload, helpers) => {
       data: { processedFilePath: outputPath },
     });
 
-    await helpers.addJob('transcription', { jobId, fileId });
+    await helpers.addJob('transcription', { jobId, fileId, model: file.model });
 
     helpers.logger.info(
       `Pre-processing complete for job ${jobId}: ${outputPath}`

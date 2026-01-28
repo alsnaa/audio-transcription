@@ -5,8 +5,12 @@ import { MediaPlayer } from "./components/MediaPlayer";
 import { UploadedList } from "./components/UploadedList";
 import { TranscriptionView } from "./components/TranscriptionView";
 import { useTranscriptionPolling } from "./hooks/useTranscriptionPolling";
-import type { MediaFile, TranscriptionSegment } from "./types/transcription";
-import { ProcessingStatus } from "./types/transcription";
+import type {
+  MediaFile,
+  TranscriptionSegment,
+  TranscriptionModel,
+} from "./types/transcription";
+import { ProcessingStatus, DEFAULT_MODEL } from "./types/transcription";
 import { fetchFiles } from "./services/filesService";
 import { fetchSegments } from "./services/segmentsService";
 import { transcribeFile } from "./services/transcribeService";
@@ -20,6 +24,8 @@ function App() {
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>([]);
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [activeSegmentId, setActiveSegmentId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] =
+    useState<TranscriptionModel>(DEFAULT_MODEL);
 
   // Seek ref for the media player
   const seekToRef = useRef<((time: number) => void) | null>(null);
@@ -98,6 +104,7 @@ function App() {
 
       try {
         const response = await transcribeFile(file, {
+          model: selectedModel,
           onUploadProgress: (event) => {
             const progress = event.total
               ? Math.round((event.loaded / event.total) * 100)
@@ -140,7 +147,7 @@ function App() {
         );
       }
     }
-  }, []);
+  }, [selectedModel]);
 
   // Handle file selection from list
   const handleFileClick = useCallback((file: MediaFile) => {
@@ -183,6 +190,8 @@ function App() {
       <HeaderToolbar
         onFileSelect={handleFileSelect}
         uploadCount={activeUploadCount}
+        selectedModel={selectedModel}
+        onModelChange={setSelectedModel}
       />
 
       {/* Upload Progress Bar */}

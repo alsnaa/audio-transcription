@@ -1,3 +1,22 @@
+// Available transcription models
+export const TranscriptionModel = {
+  WHISPER_LOCAL: "whisper-local",
+} as const;
+
+export type TranscriptionModel =
+  (typeof TranscriptionModel)[keyof typeof TranscriptionModel];
+
+export const MODEL_LABELS: Record<TranscriptionModel, string> = {
+  [TranscriptionModel.WHISPER_LOCAL]: "Whisper (Local)",
+};
+
+export const AVAILABLE_MODELS: TranscriptionModel[] = [
+  TranscriptionModel.WHISPER_LOCAL,
+];
+
+export const DEFAULT_MODEL: TranscriptionModel =
+  TranscriptionModel.WHISPER_LOCAL;
+
 // Processing status for media files
 export const ProcessingStatus = {
   IDLE: "idle",
@@ -19,6 +38,7 @@ export interface MediaFile {
   duration: number; // in seconds
   status: ProcessingStatus;
   uploadProgress: number; // 0-100
+  model?: string;
   fileUrl?: string;
   transcription?: Transcription;
   transcriptionDuration?: number | null;

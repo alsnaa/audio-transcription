@@ -11,6 +11,7 @@ export interface ApiFile {
   mimeType: string | null;
   duration: number;
   language: string;
+  model: string;
   status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
   transcriptionDuration: number | null;
   createdAt: string;

@@ -15,6 +15,7 @@ async function transcribeChunk(
     chunkOffset,
     totalChunks,
     processedFilePath,
+    model,
   },
   helpers
 ) {
@@ -22,7 +23,7 @@ async function transcribeChunk(
     `Starting transcription for chunk ${chunkIndex + 1}/${totalChunks}`
   );
 
-  const response = await transcribe(chunkPath);
+  const response = await transcribe(chunkPath, { model });
   const { language, segments = [] } = response;
 
   helpers.logger.info(
@@ -79,7 +80,7 @@ async function transcribeChunk(
 }
 
 export default async (payload, helpers) => {
-  const { jobId, fileId, chunkDuration = DEFAULT_CHUNK_DURATION } = payload;
+  const { jobId, fileId, model = 'whisper-local', chunkDuration = DEFAULT_CHUNK_DURATION } = payload;
 
   helpers.logger.info(`Starting chunking for job ${jobId}`);
 
@@ -127,6 +128,7 @@ export default async (payload, helpers) => {
           chunkOffset: 0,
           totalChunks: 1,
           processedFilePath: file.processedFilePath,
+          model,
         },
         helpers
       );
@@ -176,6 +178,7 @@ export default async (payload, helpers) => {
             chunkOffset: start,
             totalChunks: numChunks,
             processedFilePath: file.processedFilePath,
+            model,
           },
           helpers
         ).catch((err) => {

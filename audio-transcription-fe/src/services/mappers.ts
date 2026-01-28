@@ -36,6 +36,7 @@ export function mapApiFileToMediaFile(apiFile: ApiFile): MediaFile {
     size: 0,
     duration: apiFile.duration,
     status,
+    model: apiFile.model,
     uploadProgress: 100,
     fileUrl,
     transcriptionDuration: apiFile.transcriptionDuration,

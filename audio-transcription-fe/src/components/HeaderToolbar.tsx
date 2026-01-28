@@ -1,18 +1,27 @@
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Upload } from "lucide-react";
-import { ProcessingStatus } from "@/types/transcription";
+import {
+  ProcessingStatus,
+  AVAILABLE_MODELS,
+  MODEL_LABELS,
+  type TranscriptionModel,
+} from "@/types/transcription";
 
 interface HeaderToolbarProps {
   onFileSelect: (files: FileList) => void;
   uploadStatus?: ProcessingStatus;
   uploadCount?: number;
+  selectedModel: TranscriptionModel;
+  onModelChange: (model: TranscriptionModel) => void;
 }
 
 export function HeaderToolbar({
   onFileSelect,
   uploadStatus,
   uploadCount = 0,
+  selectedModel,
+  onModelChange,
 }: HeaderToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -53,6 +62,19 @@ export function HeaderToolbar({
         </div>
 
         <div className="flex items-center gap-2">
+          <select
+            value={selectedModel}
+            onChange={(e) =>
+              onModelChange(e.target.value as TranscriptionModel)
+            }
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+          >
+            {AVAILABLE_MODELS.map((model) => (
+              <option key={model} value={model}>
+                {MODEL_LABELS[model]}
+              </option>
+            ))}
+          </select>
           <input
             ref={fileInputRef}
             type="file"

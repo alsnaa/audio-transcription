@@ -14,6 +14,7 @@ model File {
   mimeType          String?
   processedFilePath String?
   chunkPaths        String[]  @default([])
+  model             String    @default("whisper-local")
   language          String?
   duration          Float?
   createdAt         DateTime  @default(now())

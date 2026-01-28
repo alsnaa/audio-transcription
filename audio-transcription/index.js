@@ -27,6 +27,8 @@ const upload = multer({ storage });
 
 const PORT = process.env.PORT || 3000;
 
+const ALLOWED_MODELS = ['whisper-local'];
+
 app.get('/', (req, res) => {
   res.send('Transcription server running');
 });
@@ -39,11 +41,16 @@ app.post('/transcribe', upload.single('audio'), async (req, res, next) => {
   }
 
   try {
+    const model = ALLOWED_MODELS.includes(req.body.model)
+      ? req.body.model
+      : 'whisper-local';
+
     const file = await prisma.file.create({
       data: {
         fileName: req.file.originalname,
         filePath: req.file.path,
         mimeType: req.file.mimetype,
+        model,
       },
     });
 
@@ -138,6 +145,7 @@ app.get('/files', async (req, res, next) => {
           mimeType: file.mimeType,
           duration: file.duration,
           language: file.language,
+          model: file.model,
           status: job?.status ?? 'PENDING',
           transcriptionDuration,
           createdAt: file.createdAt,
