@@ -57,7 +57,7 @@ export function TranscriptionView({
     if (activeSegmentId && activeRef.current) {
       activeRef.current.scrollIntoView({
         behavior: "smooth",
-        block: "nearest",
+        block: "center",
       });
     }
   }, [activeSegmentId]);
