@@ -65,15 +65,7 @@ app.get('/jobs/:id', async (req, res, next) => {
   try {
     const job = await prisma.job.findUnique({
       where: { id: req.params.id },
-      include: {
-        file: {
-          include: {
-            segments: {
-              orderBy: { start: 'asc' },
-            },
-          },
-        },
-      },
+      include: { file: true },
     });
 
     if (!job) {
@@ -81,6 +73,52 @@ app.get('/jobs/:id', async (req, res, next) => {
     }
 
     res.json(job);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/segments/:fileId', async (req, res, next) => {
+  try {
+    const file = await prisma.file.findUnique({
+      where: { id: req.params.fileId },
+      include: {
+        segments: { orderBy: { start: 'asc' } },
+        job: true,
+      },
+    });
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.json({
+      fileId: file.id,
+      status: file.job?.status ?? 'PENDING',
+      segments: file.segments,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/files', async (req, res, next) => {
+  try {
+    const files = await prisma.file.findMany({
+      include: { job: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(
+      files.map((file) => ({
+        id: file.id,
+        fileName: file.fileName,
+        duration: file.duration,
+        language: file.language,
+        status: file.job?.status ?? 'PENDING',
+        createdAt: file.createdAt,
+      }))
+    );
   } catch (error) {
     next(error);
   }
