@@ -7,27 +7,38 @@ datasource db {
   provider = "postgresql"
 }
 
-model Job {
-  id                String               @id @default(uuid())
+model File {
+  id                String    @id @default(uuid())
   fileName          String
   filePath          String
   processedFilePath String?
   chunkPaths        String[]
-  status            JobStatus            @default(PENDING)
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
-  transcriptions    TranscriptionResult[]
+  language          String?
+  duration          Float?
+  createdAt         DateTime  @default(now())
+  job               Job?
+  segments          Segment[]
 }
 
-model TranscriptionResult {
-  id         String   @id @default(uuid())
-  jobId      String
-  chunkIndex Int
-  text       String
-  job        Job      @relation(fields: [jobId], references: [id])
-  createdAt  DateTime @default(now())
+model Job {
+  id              String    @id @default(uuid())
+  fileId          String    @unique
+  file            File      @relation(fields: [fileId], references: [id])
+  status          JobStatus @default(PENDING)
+  totalChunks     Int       @default(0)
+  completedChunks Int       @default(0)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
 
-  @@unique([jobId, chunkIndex])
+model Segment {
+  id        String   @id @default(uuid())
+  fileId    String
+  file      File     @relation(fields: [fileId], references: [id])
+  start     Float
+  end       Float
+  text      String
+  createdAt DateTime @default(now())
 }
 
 enum JobStatus {

@@ -1,24 +1,98 @@
 import path from 'path';
+import { unlink } from 'fs/promises';
 import ffmpeg from 'fluent-ffmpeg';
 import prisma from '../services/db.js';
+import { transcribe } from '../services/transcriptions.js';
 
 const DEFAULT_CHUNK_DURATION = 300; // 5 minutes in seconds
 
+async function transcribeChunk(
+  {
+    jobId,
+    fileId,
+    chunkIndex,
+    chunkPath,
+    chunkOffset,
+    totalChunks,
+    processedFilePath,
+  },
+  helpers
+) {
+  helpers.logger.info(
+    `Starting transcription for chunk ${chunkIndex + 1}/${totalChunks}`
+  );
+
+  const response = await transcribe(chunkPath);
+  const { language, segments = [] } = response;
+
+  helpers.logger.info(
+    `Chunk ${chunkIndex + 1}/${totalChunks} transcribed (${segments.length} segments)`
+  );
+
+  // Save segments with adjusted timestamps
+  if (segments.length > 0) {
+    await prisma.segment.createMany({
+      data: segments.map((seg) => ({
+        fileId,
+        start: seg.start + chunkOffset,
+        end: seg.end + chunkOffset,
+        text: seg.text,
+      })),
+    });
+  }
+
+  // Set detected language on File (idempotent across chunks)
+  if (language) {
+    await prisma.file.update({
+      where: { id: fileId },
+      data: { language },
+    });
+  }
+
+  // Atomically increment completedChunks
+  const updatedJob = await prisma.job.update({
+    where: { id: jobId },
+    data: { completedChunks: { increment: 1 } },
+  });
+
+  // Clean up chunk file (skip if it's the preprocessed file itself)
+  if (chunkPath !== processedFilePath) {
+    await unlink(chunkPath);
+    helpers.logger.info(`Deleted chunk file: ${chunkPath}`);
+  }
+
+  // All chunks done — mark job completed and clean up processed file
+  if (updatedJob.completedChunks === totalChunks) {
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { status: 'COMPLETED' },
+    });
+
+    if (processedFilePath) {
+      await unlink(processedFilePath).catch(() => {});
+    }
+
+    helpers.logger.info(
+      `Job ${jobId} fully transcribed (${totalChunks} chunks).`
+    );
+  }
+}
+
 export default async (payload, helpers) => {
-  const { jobId, chunkDuration = DEFAULT_CHUNK_DURATION } = payload;
+  const { jobId, fileId, chunkDuration = DEFAULT_CHUNK_DURATION } = payload;
 
   helpers.logger.info(`Starting chunking for job ${jobId}`);
 
-  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
 
-  if (!job || !job.processedFilePath) {
-    throw new Error(`Job ${jobId} not found or not preprocessed`);
+  if (!file || !file.processedFilePath) {
+    throw new Error(`File ${fileId} not found or not preprocessed`);
   }
 
   try {
     // Get audio duration via ffprobe
     const duration = await new Promise((resolve, reject) => {
-      ffmpeg.ffprobe(job.processedFilePath, (err, metadata) => {
+      ffmpeg.ffprobe(file.processedFilePath, (err, metadata) => {
         if (err) reject(err);
         else resolve(metadata.format.duration);
       });
@@ -26,36 +100,55 @@ export default async (payload, helpers) => {
 
     helpers.logger.info(`Audio duration for job ${jobId}: ${duration}s`);
 
+    // Store total duration on File
+    await prisma.file.update({
+      where: { id: fileId },
+      data: { duration },
+    });
+
     // If audio is shorter than chunk duration, use the file as-is
     if (duration <= chunkDuration) {
+      await prisma.file.update({
+        where: { id: fileId },
+        data: { chunkPaths: [file.processedFilePath] },
+      });
+
       await prisma.job.update({
         where: { id: jobId },
-        data: { chunkPaths: [job.processedFilePath] },
+        data: { totalChunks: 1 },
       });
 
-      await helpers.addJob('transcribe', {
-        jobId,
-        chunkIndex: 0,
-        chunkPath: job.processedFilePath,
-        totalChunks: 1,
-      });
-
-      helpers.logger.info(
-        `Audio shorter than ${chunkDuration}s, no splitting needed for job ${jobId}`
+      await transcribeChunk(
+        {
+          jobId,
+          fileId,
+          chunkIndex: 0,
+          chunkPath: file.processedFilePath,
+          chunkOffset: 0,
+          totalChunks: 1,
+          processedFilePath: file.processedFilePath,
+        },
+        helpers
       );
+
       return;
     }
 
     // Calculate number of chunks
     const numChunks = Math.ceil(duration / chunkDuration);
     const chunkPaths = [];
+    const transcriptionPromises = [];
 
     for (let i = 0; i < numChunks; i++) {
       const start = i * chunkDuration;
-      const chunkPath = path.join('uploads', `${jobId}_chunk_${String(i).padStart(3, '0')}.wav`);
+      const chunkPath = path.join(
+        'uploads',
+        `${fileId}_chunk_${String(i).padStart(3, '0')}.wav`
+      );
 
+      // Split this chunk
       await new Promise((resolve, reject) => {
-        ffmpeg(job.processedFilePath)
+        ffmpeg(file.processedFilePath)
           .seekInput(start)
           .duration(chunkDuration)
           .audioFrequency(16000)
@@ -68,22 +161,55 @@ export default async (payload, helpers) => {
 
       chunkPaths.push(chunkPath);
 
-      await helpers.addJob('transcribe', {
-        jobId,
-        chunkIndex: i,
-        chunkPath,
-        totalChunks: numChunks,
-      });
+      helpers.logger.info(
+        `Chunk ${i + 1}/${numChunks} split, sending to transcribe`
+      );
 
-      helpers.logger.info(`Created chunk ${i + 1}/${numChunks} for job ${jobId}, transcribe task queued`);
+      // Fire off transcription immediately — don't wait
+      transcriptionPromises.push(
+        transcribeChunk(
+          {
+            jobId,
+            fileId,
+            chunkIndex: i,
+            chunkPath,
+            chunkOffset: start,
+            totalChunks: numChunks,
+            processedFilePath: file.processedFilePath,
+          },
+          helpers
+        ).catch((err) => {
+          helpers.logger.error(
+            `Transcription failed for chunk ${i + 1}/${numChunks}: ${err.message}`
+          );
+          throw err;
+        })
+      );
     }
 
-    await prisma.job.update({
-      where: { id: jobId },
+    await prisma.file.update({
+      where: { id: fileId },
       data: { chunkPaths },
     });
 
-    helpers.logger.info(`Chunking complete for job ${jobId}: ${chunkPaths.length} chunks`);
+    await prisma.job.update({
+      where: { id: jobId },
+      data: { totalChunks: numChunks },
+    });
+
+    // Wait for all parallel transcriptions to settle
+    const results = await Promise.allSettled(transcriptionPromises);
+    const failed = results.filter((r) => r.status === 'rejected');
+
+    if (failed.length > 0) {
+      throw new Error(
+        `${failed.length}/${numChunks} chunks failed to transcribe`
+      );
+    }
+
+    helpers.logger.info(
+      `Chunking + transcription complete for job ${jobId}: ${numChunks} chunks`
+    );
   } catch (error) {
     helpers.logger.error(`Chunking failed for job ${jobId}: ${error.message}`);
 

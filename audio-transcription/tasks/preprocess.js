@@ -3,14 +3,14 @@ import ffmpeg from 'fluent-ffmpeg';
 import prisma from '../services/db.js';
 
 export default async (payload, helpers) => {
-  const { jobId } = payload;
+  const { jobId, fileId } = payload;
 
   helpers.logger.info(`Starting pre-processing for job ${jobId}`);
 
-  const job = await prisma.job.findUnique({ where: { id: jobId } });
+  const file = await prisma.file.findUnique({ where: { id: fileId } });
 
-  if (!job) {
-    throw new Error(`Job ${jobId} not found`);
+  if (!file) {
+    throw new Error(`File ${fileId} not found`);
   }
 
   await prisma.job.update({
@@ -18,11 +18,11 @@ export default async (payload, helpers) => {
     data: { status: 'PROCESSING' },
   });
 
-  const outputPath = path.join('uploads', `${jobId}.wav`);
+  const outputPath = path.join('uploads', `${fileId}.wav`);
 
   try {
     await new Promise((resolve, reject) => {
-      ffmpeg(job.filePath)
+      ffmpeg(file.filePath)
         .audioFrequency(16000)
         .audioChannels(1)
         .format('wav')
@@ -31,16 +31,20 @@ export default async (payload, helpers) => {
         .save(outputPath);
     });
 
-    await prisma.job.update({
-      where: { id: jobId },
+    await prisma.file.update({
+      where: { id: fileId },
       data: { processedFilePath: outputPath },
     });
 
-    await helpers.addJob('chunk', { jobId });
+    await helpers.addJob('chunk', { jobId, fileId });
 
-    helpers.logger.info(`Pre-processing complete for job ${jobId}: ${outputPath}`);
+    helpers.logger.info(
+      `Pre-processing complete for job ${jobId}: ${outputPath}`
+    );
   } catch (error) {
-    helpers.logger.error(`Pre-processing failed for job ${jobId}: ${error.message}`);
+    helpers.logger.error(
+      `Pre-processing failed for job ${jobId}: ${error.message}`
+    );
 
     await prisma.job.update({
       where: { id: jobId },

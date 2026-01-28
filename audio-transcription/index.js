@@ -32,24 +32,30 @@ app.get('/', (req, res) => {
 
 app.post('/transcribe', upload.single('audio'), async (req, res, next) => {
   if (!req.file) {
-    return res.status(400).json({ error: 'No audio file provided. Use field name "audio".' });
+    return res
+      .status(400)
+      .json({ error: 'No audio file provided. Use field name "audio".' });
   }
 
   try {
-    const job = await prisma.job.create({
+    const file = await prisma.file.create({
       data: {
         fileName: req.file.originalname,
         filePath: req.file.path,
       },
     });
 
+    const job = await prisma.job.create({
+      data: { fileId: file.id },
+    });
+
     await quickAddJob(
       { connectionString: process.env.DATABASE_URL },
       'preprocess',
-      { jobId: job.id }
+      { jobId: job.id, fileId: file.id }
     );
 
-    res.status(201).json({ jobId: job.id });
+    res.status(201).json({ jobId: job.id, fileId: file.id });
   } catch (error) {
     next(error);
   }
@@ -60,8 +66,12 @@ app.get('/jobs/:id', async (req, res, next) => {
     const job = await prisma.job.findUnique({
       where: { id: req.params.id },
       include: {
-        transcriptions: {
-          orderBy: { chunkIndex: 'asc' },
+        file: {
+          include: {
+            segments: {
+              orderBy: { start: 'asc' },
+            },
+          },
         },
       },
     });
@@ -77,10 +87,14 @@ app.get('/jobs/:id', async (req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
-  console.error(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${err.message}`);
+  console.error(
+    `[${new Date().toISOString()}] ${req.method} ${req.originalUrl} - ${err.message}`
+  );
   console.error(err.stack);
 
-  res.status(err.status || 500).json({ error: err.message || 'Internal Server Error' });
+  res
+    .status(err.status || 500)
+    .json({ error: err.message || 'Internal Server Error' });
 });
 
 app.listen(PORT, () => {
