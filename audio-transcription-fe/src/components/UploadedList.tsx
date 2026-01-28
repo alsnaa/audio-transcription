@@ -2,7 +2,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { FileAudio, FileVideo, Clock, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  FileAudio,
+  FileVideo,
+  Clock,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 import type { MediaFile } from "@/types/transcription";
 import { ProcessingStatus } from "@/types/transcription";
 import { formatTime, formatBytes } from "@/lib/mock-data";
@@ -70,83 +76,88 @@ export function UploadedList({
   }
 
   return (
-    <ScrollArea className="flex-1">
-      <div className="border-l border-border bg-muted/20 p-2">
-        <div className="space-y-2">
-          {files.map((file) => {
-            const isSelected = file.id === selectedFileId;
-            const isProcessing =
-              file.status === ProcessingStatus.UPLOADING ||
-              file.status === ProcessingStatus.PROCESSING;
+    <div className="flex h-full w-full flex-col overflow-hidden bg-background">
+      <ScrollArea className="min-h-0 flex-1 py-2">
+        <div className="border-l border-border bg-muted/20 p-2">
+          <div className="space-y-2">
+            {files.map((file) => {
+              const isSelected = file.id === selectedFileId;
+              const isProcessing =
+                file.status === ProcessingStatus.UPLOADING ||
+                file.status === ProcessingStatus.PROCESSING;
 
-            return (
-              <Card
-                key={file.id}
-                className={`cursor-pointer transition-colors hover:bg-accent ${
-                  isSelected ? "bg-accent border-primary" : ""
-                }`}
-                onClick={() => onFileSelect(file)}
-              >
-                <CardContent className="flex items-start gap-3 p-3">
-                  {/* File Icon */}
-                  <div className="mt-1">{getFileIcon(file.type)}</div>
+              return (
+                <Card
+                  key={file.id}
+                  className={`cursor-pointer transition-colors hover:bg-accent ${
+                    isSelected ? "bg-accent border-primary" : ""
+                  }`}
+                  onClick={() => onFileSelect(file)}
+                >
+                  <CardContent className="flex items-start gap-3 p-3">
+                    {/* File Icon */}
+                    <div className="mt-1">{getFileIcon(file.type)}</div>
 
-                  {/* File Info */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="truncate text-sm font-medium">
-                          {file.name}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatTime(file.duration)}
-                          </span>
-                          {file.size > 0 && (
-                            <>
-                              <span>•</span>
-                              <span>{formatBytes(file.size)}</span>
-                            </>
-                          )}
+                    {/* File Info */}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {file.name}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {formatTime(file.duration)}
+                            </span>
+                            {file.size > 0 && (
+                              <>
+                                <span>•</span>
+                                <span>{formatBytes(file.size)}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
+                        {getStatusBadge(file.status)}
                       </div>
-                      {getStatusBadge(file.status)}
+
+                      {/* Progress bar for uploading/processing */}
+                      {isProcessing && (
+                        <div className="space-y-1">
+                          <Progress
+                            value={file.uploadProgress}
+                            className="h-1"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {file.uploadProgress}%
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Transcription preview */}
+                      {file.status === ProcessingStatus.COMPLETED &&
+                        file.transcription && (
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {file.transcription.fullText}
+                          </p>
+                        )}
+
+                      {/* Partial transcription for processing state */}
+                      {file.status === ProcessingStatus.PROCESSING &&
+                        file.transcription && (
+                          <p className="line-clamp-2 text-xs text-muted-foreground">
+                            {file.transcription.fullText}
+                            <span className="ml-1 animate-pulse">...</span>
+                          </p>
+                        )}
                     </div>
-
-                    {/* Progress bar for uploading/processing */}
-                    {isProcessing && (
-                      <div className="space-y-1">
-                        <Progress value={file.uploadProgress} className="h-1" />
-                        <p className="text-xs text-muted-foreground">
-                          {file.uploadProgress}%
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Transcription preview */}
-                    {file.status === ProcessingStatus.COMPLETED &&
-                      file.transcription && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {file.transcription.fullText}
-                        </p>
-                      )}
-
-                    {/* Partial transcription for processing state */}
-                    {file.status === ProcessingStatus.PROCESSING &&
-                      file.transcription && (
-                        <p className="line-clamp-2 text-xs text-muted-foreground">
-                          {file.transcription.fullText}
-                          <span className="ml-1 animate-pulse">...</span>
-                        </p>
-                      )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </ScrollArea>
+      </ScrollArea>
+    </div>
   );
 }
