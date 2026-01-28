@@ -21,6 +21,7 @@ export interface MediaFile {
   uploadProgress: number; // 0-100
   fileUrl?: string;
   transcription?: Transcription;
+  transcriptionDuration?: number | null;
   createdAt: Date;
 }
 

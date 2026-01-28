@@ -63,6 +63,7 @@ export function useTranscriptionPolling(
                       ...f,
                       status: ProcessingStatus.COMPLETED,
                       transcription: buildTranscription(fileId, segments),
+                      transcriptionDuration: data.transcriptionDuration,
                     }
                   : f
               )

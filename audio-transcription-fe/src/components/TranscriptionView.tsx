@@ -1,9 +1,16 @@
 import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Clock } from "lucide-react";
+import { Clock, Timer } from "lucide-react";
 import type { MediaFile, TranscriptionSegment } from "@/types/transcription";
 import { formatTime } from "@/lib/mock-data";
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const m = Math.floor(seconds / 60);
+  const s = Math.round(seconds % 60);
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
 
 interface TranscriptionViewProps {
   mediaFile: MediaFile | null;
@@ -48,7 +55,10 @@ export function TranscriptionView({
 
   useEffect(() => {
     if (activeSegmentId && activeRef.current) {
-      activeRef.current.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      activeRef.current.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
     }
   }, [activeSegmentId]);
 
@@ -61,6 +71,16 @@ export function TranscriptionView({
           <span>{segments.length} segments</span>
           {language && <span>•</span>}
           {language && <span className="uppercase">{language}</span>}
+          {mediaFile.transcriptionDuration != null && (
+            <>
+              <span>•</span>
+              <span className="inline-flex items-center gap-1">
+                Transcribed in
+                <Timer className="h-3 w-3" />
+                {formatDuration(mediaFile.transcriptionDuration)}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

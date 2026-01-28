@@ -38,6 +38,7 @@ export function mapApiFileToMediaFile(apiFile: ApiFile): MediaFile {
     status,
     uploadProgress: 100,
     fileUrl,
+    transcriptionDuration: apiFile.transcriptionDuration,
     createdAt: new Date(apiFile.createdAt),
   };
 }

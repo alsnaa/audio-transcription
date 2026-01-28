@@ -12,6 +12,7 @@ export interface ApiFile {
   duration: number;
   language: string;
   status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  transcriptionDuration: number | null;
   createdAt: string;
 }
 
@@ -25,6 +26,7 @@ export interface ApiSegment {
 export interface ApiSegmentsResponse {
   fileId: string;
   status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED";
+  transcriptionDuration: number | null;
   segments: ApiSegment[];
 }
 
