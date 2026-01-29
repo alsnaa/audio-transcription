@@ -1,3 +1,4 @@
+import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import express from 'express';
@@ -27,7 +28,7 @@ const upload = multer({ storage });
 
 const PORT = process.env.PORT || 3000;
 
-const ALLOWED_MODELS = ['whisper-local'];
+const ALLOWED_MODELS = ['whisper-local', 'elevenlabs-scribe'];
 
 app.get('/', (req, res) => {
   res.send('Transcription server running');
@@ -152,6 +153,36 @@ app.get('/files', async (req, res, next) => {
         };
       })
     );
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/files/:id', async (req, res, next) => {
+  try {
+    const file = await prisma.file.findUnique({ where: { id: req.params.id } });
+
+    if (!file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Delete related records in order: segments → job → file
+    await prisma.segment.deleteMany({ where: { fileId: file.id } });
+    await prisma.job.deleteMany({ where: { fileId: file.id } });
+    await prisma.file.delete({ where: { id: file.id } });
+
+    // Delete physical files from disk, ignoring "not found" errors
+    const filePaths = [
+      file.filePath,
+      file.processedFilePath,
+      ...(file.chunkPaths || []),
+    ].filter(Boolean);
+
+    await Promise.all(
+      filePaths.map((p) => fs.unlink(p).catch(() => {}))
+    );
+
+    res.status(204).end();
   } catch (error) {
     next(error);
   }

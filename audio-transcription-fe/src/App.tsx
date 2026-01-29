@@ -11,7 +11,7 @@ import type {
   TranscriptionModel,
 } from "./types/transcription";
 import { ProcessingStatus, DEFAULT_MODEL } from "./types/transcription";
-import { fetchFiles } from "./services/filesService";
+import { fetchFiles, deleteFile } from "./services/filesService";
 import { fetchSegments } from "./services/segmentsService";
 import { transcribeFile } from "./services/transcribeService";
 import {
@@ -155,6 +155,22 @@ function App() {
     setActiveSegmentId(null);
   }, []);
 
+  // Handle file deletion
+  const handleFileDelete = useCallback(async (fileId: string) => {
+    try {
+      await deleteFile(fileId);
+      setMediaFiles((prev) => prev.filter((f) => f.id !== fileId));
+      setSelectedFileId((prev) => {
+        if (prev !== fileId) return prev;
+        const remaining = mediaFiles.filter((f) => f.id !== fileId);
+        return remaining.length > 0 ? remaining[0].id : null;
+      });
+      setActiveSegmentId(null);
+    } catch (err) {
+      console.error("Failed to delete file:", err);
+    }
+  }, [mediaFiles]);
+
   // Handle segment click (seek to timestamp)
   const handleSegmentClick = useCallback((segment: TranscriptionSegment) => {
     setActiveSegmentId(segment.id);
@@ -214,6 +230,7 @@ function App() {
             files={mediaFiles}
             selectedFileId={selectedFileId}
             onFileSelect={handleFileClick}
+            onFileDelete={handleFileDelete}
           />
         </div>
 

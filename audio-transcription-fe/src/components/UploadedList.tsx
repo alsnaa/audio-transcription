@@ -8,6 +8,7 @@ import {
   Clock,
   CheckCircle2,
   Loader2,
+  Trash2,
 } from "lucide-react";
 import type { MediaFile } from "@/types/transcription";
 import { ProcessingStatus } from "@/types/transcription";
@@ -17,6 +18,7 @@ interface UploadedListProps {
   files: MediaFile[];
   selectedFileId: string | null;
   onFileSelect: (file: MediaFile) => void;
+  onFileDelete?: (fileId: string) => void;
 }
 
 function getStatusBadge(status: ProcessingStatus) {
@@ -61,6 +63,7 @@ export function UploadedList({
   files,
   selectedFileId,
   onFileSelect,
+  onFileDelete,
 }: UploadedListProps) {
   if (files.length === 0) {
     return (
@@ -118,7 +121,20 @@ export function UploadedList({
                             )}
                           </div>
                         </div>
-                        {getStatusBadge(file.status)}
+                        <div className="flex items-center gap-1">
+                          {getStatusBadge(file.status)}
+                          {onFileDelete && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onFileDelete(file.id);
+                              }}
+                              className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </div>
 
                       {/* Progress bar for uploading/processing */}

@@ -3,6 +3,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Clock, Timer } from "lucide-react";
 import type { MediaFile, TranscriptionSegment } from "@/types/transcription";
+import { MODEL_LABELS, type TranscriptionModel } from "@/types/transcription";
 import { formatTime } from "@/lib/mock-data";
 
 function formatDuration(seconds: number): string {
@@ -71,6 +72,15 @@ export function TranscriptionView({
           <span>{segments.length} segments</span>
           {language && <span>•</span>}
           {language && <span className="uppercase">{language}</span>}
+          {mediaFile.model && (
+            <>
+              <span>•</span>
+              <span>
+                {MODEL_LABELS[mediaFile.model as TranscriptionModel] ??
+                  mediaFile.model}
+              </span>
+            </>
+          )}
           {mediaFile.transcriptionDuration != null && (
             <>
               <span>•</span>

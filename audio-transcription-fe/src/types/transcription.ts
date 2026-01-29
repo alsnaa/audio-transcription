@@ -1,6 +1,7 @@
 // Available transcription models
 export const TranscriptionModel = {
   WHISPER_LOCAL: "whisper-local",
+  ELEVENLABS_SCRIBE: "elevenlabs-scribe",
 } as const;
 
 export type TranscriptionModel =
@@ -8,10 +9,12 @@ export type TranscriptionModel =
 
 export const MODEL_LABELS: Record<TranscriptionModel, string> = {
   [TranscriptionModel.WHISPER_LOCAL]: "Whisper (Local)",
+  [TranscriptionModel.ELEVENLABS_SCRIBE]: "ElevenLabs Scribe",
 };
 
 export const AVAILABLE_MODELS: TranscriptionModel[] = [
   TranscriptionModel.WHISPER_LOCAL,
+  TranscriptionModel.ELEVENLABS_SCRIBE,
 ];
 
 export const DEFAULT_MODEL: TranscriptionModel =
