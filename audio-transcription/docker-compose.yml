@@ -1,0 +1,62 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3006:3006"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://macbook:password@pg:5432/audio_transcription?schema=public
+      - PORT=3006
+    volumes:
+      - uploads:/app/uploads
+    command: yarn dev
+    networks:
+      - transcription-net
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - node_modules/
+            - uploads/
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: yarn.lock
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://macbook:password@pg:5432/audio_transcription?schema=public
+    volumes:
+      - uploads:/app/uploads
+    command: yarn start:worker
+    networks:
+      - transcription-net
+    develop:
+      watch:
+        - action: sync
+          path: .
+          target: /app
+          ignore:
+            - node_modules/
+            - uploads/
+        - action: rebuild
+          path: package.json
+        - action: rebuild
+          path: yarn.lock
+
+volumes:
+  uploads:
+
+networks:
+  transcription-net:
+    external: true

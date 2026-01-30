@@ -3,7 +3,7 @@ import path from 'path';
 import axios from 'axios';
 import FormData from 'form-data';
 
-const apiUrl = 'http://192.168.1.24:8005/transcribe';
+const apiUrl = 'http://localhost:3000/transcribe';
 
 export async function transcribe(filePath) {
   const fileBuffer = await readFile(filePath);
